@@ -1,0 +1,1708 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kalkulator Jarak Desa-Fasilitas</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #3498db;
+            --success: #27ae60;
+            --danger: #e74c3c;
+            --light: #f5f5f5;
+            --dark: #34495e;
+            --gray: #7f8c8d;
+            --border: #e0e0e0;
+            --shadow: rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s ease;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--light);
+            color: var(--dark);
+            line-height: 1.6;
+        }
+        
+        #container { 
+            display: flex; 
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        
+        #header {
+            background: linear-gradient(135deg, var(--primary), #1a2530);
+            color: white;
+            padding: 15px 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            z-index: 100;
+        }
+        
+        .header-title {
+            flex: 1;
+        }
+        
+        .header-title h1 {
+            font-size: 1.4rem;
+            margin-bottom: 5px;
+        }
+        
+        .header-title p {
+            font-size: 0.85rem;
+            opacity: 0.9;
+        }
+        
+        #header-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        #content {
+            display: flex;
+            flex: 1;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        #sidebar { 
+            padding: 20px; 
+            overflow-y: auto;
+            background-color: white;
+            box-shadow: 0 2px 10px var(--shadow);
+            z-index: 50;
+        }
+        
+        #map-container {
+            flex: 1;
+            min-height: 300px;
+            background-color: #e0e0e0;
+            position: relative;
+        }
+        
+        #map { 
+            width: 100%;
+            height: 100%;
+        }
+        
+        .filter-group { 
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--dark);
+            font-size: 0.95rem;
+        }
+        
+        select, button { 
+            width: 100%; 
+            padding: 12px 15px; 
+            margin-top: 5px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            font-size: 0.95rem;
+            outline: none;
+            transition: var(--transition);
+        }
+        
+        select {
+            background-color: white;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+            background-position: right 0.75rem center;
+            background-repeat: no-repeat;
+            background-size: 1.5em 1.5em;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+        }
+        
+        select:focus {
+            border-color: var(--secondary);
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+        }
+        
+        button { 
+            background-color: var(--success); 
+            color: white; 
+            border: none; 
+            cursor: pointer;
+            font-weight: 600;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        button:hover { 
+            background-color: #2ecc71; 
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        button.secondary {
+            background-color: var(--secondary);
+        }
+        
+        button.secondary:hover {
+            background-color: #2980b9;
+        }
+        
+        #result { 
+            margin-top: 25px; 
+            padding: 20px; 
+            background: linear-gradient(to right, #f8f9fa, #f0f7ff);
+            border-radius: 10px;
+            border-left: 4px solid var(--secondary);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+        
+        .result-title {
+            margin-top: 0;
+            color: var(--primary);
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 12px;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .route-info {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: #e8f4fc;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+        
+        .distance-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            background-color: var(--success);
+            color: white;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            margin-left: 8px;
+        }
+        
+        .badge-sea {
+            background-color: var(--secondary);
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            background-color: var(--success);
+            color: white;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.3s ease;
+        }
+        
+        .notification.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        
+        .refresh-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .radius-info {
+            margin-top: 10px;
+            font-size: 0.85rem;
+            color: var(--gray);
+            font-style: italic;
+        }
+        
+        .error-message {
+            color: var(--danger);
+            padding: 12px;
+            background-color: #fdecea;
+            border-radius: 6px;
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .result-item {
+            margin-bottom: 10px;
+            display: flex;
+        }
+        
+        .result-label {
+            font-weight: 600;
+            min-width: 120px;
+        }
+        
+        .result-value {
+            flex: 1;
+        }
+        
+        .route-summary {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        
+        .route-icon {
+            color: var(--secondary);
+            font-size: 1.2rem;
+        }
+        
+        .route-detail {
+            padding-left: 28px;
+        }
+        
+        .map-controls {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            z-index: 400;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .map-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: white;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        
+        .map-btn:hover {
+            background-color: #f0f0f0;
+            transform: scale(1.05);
+        }
+        
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            z-index: 400;
+            max-width: 220px;
+        }
+        
+        .legend h4 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: var(--dark);
+            font-size: 0.9rem;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 8px;
+            margin-right: 10px;
+            border-radius: 2px;
+        }
+        
+        /* Styles for all facilities results */
+        .results-container {
+            margin-top: 20px;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 15px;
+        }
+        
+        .facility-result {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-left: 4px solid var(--secondary);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .facility-result:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .facility-result.active {
+            border-left: 4px solid var(--success);
+            background-color: #f0f7ff;
+        }
+        
+        .facility-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .facility-type {
+            font-weight: bold;
+            color: var(--primary);
+            font-size: 1.1rem;
+        }
+        
+        .facility-distance {
+            background-color: var(--success);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+        
+        .facility-details {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .facility-name {
+            font-weight: 600;
+            color: var(--dark);
+        }
+        
+        .facility-route {
+            font-size: 0.9rem;
+            color: var(--gray);
+        }
+        
+        .facility-port {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            color: var(--gray);
+        }
+        
+        .show-route-btn {
+            margin-top: 10px;
+            padding: 8px 15px;
+            background-color: var(--secondary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: var(--transition);
+            display: inline-block;
+        }
+        
+        .show-route-btn:hover {
+            background-color: #2980b9;
+        }
+        
+        .all-facilities-summary {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid var(--primary);
+        }
+        
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        
+        .summary-label {
+            font-weight: 600;
+        }
+        
+        .summary-value {
+            font-weight: bold;
+        }
+        
+        @media (min-width: 768px) {
+            .results-container {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        
+        @media (min-width: 992px) {
+            #content {
+                flex-direction: row;
+            }
+            
+            #sidebar { 
+                width: 380px; 
+            }
+            
+            .header-title h1 {
+                font-size: 1.5rem;
+            }
+        }
+        
+        @media (max-width: 991px) {
+            #header {
+                flex-direction: column;
+                text-align: center;
+                gap: 15px;
+            }
+            
+            .header-title {
+                text-align: center;
+            }
+            
+            #header-controls {
+                width: 100%;
+                justify-content: center;
+            }
+            
+            #sidebar {
+                max-height: 50vh;
+            }
+            
+            #map-container {
+                height: 400px;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .header-title h1 {
+                font-size: 1.2rem;
+            }
+            
+            button, select {
+                padding: 10px 12px;
+            }
+            
+            .result-item {
+                flex-direction: column;
+                gap: 4px;
+            }
+            
+            .result-label {
+                min-width: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="header">
+            <div class="header-title">
+                <h1><i class="fas fa-map-marked-alt"></i> Kalkulator Jarak Desa ke Fasilitas</h1>
+                <p>Data langsung dari Google Sheets - Terakhir diperbarui: <span id="last-updated">-</span></p>
+            </div>
+            <div id="header-controls">
+                <button id="refresh-btn" class="secondary" onclick="loadData(true)">
+                    <span class="refresh-btn">
+                        <i class="fas fa-sync-alt"></i>
+                        <span>Perbarui Data</span>
+                    </span>
+                </button>
+            </div>
+        </div>
+        
+        <div id="content">
+            <div id="sidebar">
+                <h2><i class="fas fa-filter"></i> Filter Pencarian</h2>
+                
+                <div class="filter-group">
+                    <label for="kabupaten"><i class="fas fa-city"></i> Kabupaten:</label>
+                    <select id="kabupaten" onchange="updateKecamatan()">
+                        <option value="">Semua Kabupaten</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label for="kecamatan"><i class="fas fa-map-marker-alt"></i> Kecamatan:</label>
+                    <select id="kecamatan" onchange="updateDesa()">
+                        <option value="">Semua Kecamatan</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label for="desa"><i class="fas fa-tree"></i> Desa:</label>
+                    <select id="desa">
+                        <option value="">Pilih Desa</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label for="fasilitas"><i class="fas fa-hospital"></i> Jenis Fasilitas:</label>
+                    <select id="fasilitas">
+                        <option value="">Semua Fasilitas</option>
+                    </select>
+                </div>
+                
+                <button id="calculate-btn" onclick="hitungJarak()">
+                    <span id="btn-text">Hitung Jarak Terdekat</span>
+                    <span id="btn-loading" class="loading" style="display:none;"></span>
+                </button>
+                
+                <div id="result">
+                    <h3 class="result-title"><i class="fas fa-calculator"></i> Hasil Perhitungan</h3>
+                    <div id="hasil-jarak">Silakan pilih desa dan fasilitas untuk menghitung jarak.</div>
+                    
+                    <!-- Container for all facilities results -->
+                    <div id="all-facilities-results" style="display:none;">
+                        <div class="all-facilities-summary">
+                            <h4><i class="fas fa-info-circle"></i> Ringkasan Semua Fasilitas</h4>
+                            <div class="summary-item">
+                                <span class="summary-label">Total Fasilitas Ditemukan:</span>
+                                <span class="summary-value" id="total-facilities">0</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-label">Jarak Terdekat:</span>
+                                <span class="summary-value" id="nearest-distance">-</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-label">Jenis Fasilitas Terdekat:</span>
+                                <span class="summary-value" id="nearest-type">-</span>
+                            </div>
+                        </div>
+                        
+                        <div class="results-container" id="facility-results-container">
+                            <!-- Facility results will be inserted here -->
+                        </div>
+                    </div>
+                    
+                    <!-- Container for single facility result -->
+                    <div id="single-facility-result" style="display:none;">
+                        <div id="rute-detail" class="route-info">
+                            <div class="route-summary">
+                                <i class="fas fa-route route-icon"></i>
+                                <strong>Rute:</strong> <span id="route-summary"></span>
+                            </div>
+                            <div class="route-summary">
+                                <i class="fas fa-clock route-icon"></i>
+                                <strong>Perkiraan Waktu:</strong> <span id="route-duration"></span>
+                            </div>
+                            <div id="radius-info" class="radius-info"></div>
+                        </div>
+                    </div>
+                    
+                    <div id="error-message" class="error-message" style="display:none;">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <span id="error-text"></span>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="map-container">
+                <div id="map"></div>
+                
+                <div class="map-controls">
+                    <div class="map-btn" title="Zoom In" onclick="map.zoomIn()">
+                        <i class="fas fa-plus"></i>
+                    </div>
+                    <div class="map-btn" title="Zoom Out" onclick="map.zoomOut()">
+                        <i class="fas fa-minus"></i>
+                    </div>
+                    <div class="map-btn" title="Reset View" onclick="resetMapView()">
+                        <i class="fas fa-sync-alt"></i>
+                    </div>
+                </div>
+                
+                <div class="legend">
+                    <h4><i class="fas fa-map-legend"></i> Legenda</h4>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #3498db;"></div>
+                        <span>Rute Darat</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #e74c3c; border-bottom: 2px dashed #e74c3c;"></div>
+                        <span>Rute Penyebrangan</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #27ae60;"></div>
+                        <span>Desa</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #9b59b6;"></div>
+                        <span>Fasilitas</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #f39c12;"></div>
+                        <span>Pelabuhan</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="notification" class="notification">
+        <i class="fas fa-check-circle"></i>
+        <span>Data berhasil diperbarui!</span>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+    <script>
+        // Inisialisasi peta
+        let map;
+        function initMap() {
+            map = L.map('map').setView([-2.5489, 118.0149], 5);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+            
+            // Perbaikan untuk tampilan peta di mobile
+            setTimeout(() => {
+                map.invalidateSize();
+            }, 100);
+        }
+
+        // Variabel global
+        const SPREADSHEET_ID = '1n0glt6rkNHHF2MJJG8zq7GKwk1RsJf8wzet994IIu-c';
+        let desaData = [];
+        let fasilitasData = [];
+        let pelabuhanData = [];
+        let kabupatenList = [];
+        let fasilitasTypes = [];
+        let routeLayers = [];
+        let markers = {
+            start: null,
+            end: null
+        };
+        let refreshInterval;
+        let allFacilitiesResults = [];
+
+        // Format tanggal untuk last updated
+        function formatDate(date) {
+            const options = { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            };
+            return date.toLocaleDateString('id-ID', options);
+        }
+
+        // Tampilkan notifikasi
+        function showNotification(message, duration = 3000) {
+            const notification = document.getElementById('notification');
+            notification.querySelector('span').textContent = message;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, duration);
+        }
+
+        // Set status refresh button
+        function setRefreshButtonState(isLoading) {
+            const refreshBtn = document.getElementById('refresh-btn');
+            const refreshIcon = refreshBtn.querySelector('i');
+            
+            if (isLoading) {
+                refreshBtn.disabled = true;
+                refreshIcon.className = 'fas fa-spinner fa-spin';
+            } else {
+                refreshBtn.disabled = false;
+                refreshIcon.className = 'fas fa-sync-alt';
+            }
+        }
+
+        // Reset tampilan peta
+        function resetMapView() {
+            if (map) {
+                map.setView([-2.5489, 118.0149], 5);
+                clearMapLayers();
+                document.getElementById('rute-detail').style.display = 'none';
+                document.getElementById('hasil-jarak').innerHTML = 'Silakan pilih desa dan fasilitas untuk menghitung jarak.';
+            }
+        }
+
+        // Load data dari Google Spreadsheet
+        async function loadData(showNotification = false) {
+            setRefreshButtonState(true);
+            
+            try {
+                // Load data Desa
+                const desaUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=Desa&t=${Date.now()}`;
+                const desaResponse = await fetch(desaUrl);
+                const desaText = await desaResponse.text();
+                const desaJson = JSON.parse(desaText.substring(47).slice(0, -2));
+                
+                desaData = desaJson.table.rows.map(row => ({
+                    kabupaten: row.c[0]?.v || '',
+                    kecamatan: row.c[1]?.v || '',
+                    desa: row.c[2]?.v || '',
+                    lat: parseFloat(row.c[3]?.v) || 0,
+                    lng: parseFloat(row.c[4]?.v) || 0
+                }));
+                
+                // Load data Fasilitas
+                const fasilitasUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=Fasilitas&t=${Date.now()}`;
+                const fasilitasResponse = await fetch(fasilitasUrl);
+                const fasilitasText = await fasilitasResponse.text();
+                const fasilitasJson = JSON.parse(fasilitasText.substring(47).slice(0, -2));
+                
+                fasilitasData = fasilitasJson.table.rows.map(row => ({
+                    jenis: row.c[0]?.v || '',
+                    nama: row.c[1]?.v || '',
+                    lat: parseFloat(row.c[2]?.v) || 0,
+                    lng: parseFloat(row.c[3]?.v) || 0
+                }));
+                
+                // Load data Pelabuhan
+                const pelabuhanUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=Pelabuhan&t=${Date.now()}`;
+                const pelabuhanResponse = await fetch(pelabuhanUrl);
+                const pelabuhanText = await pelabuhanResponse.text();
+                const pelabuhanJson = JSON.parse(pelabuhanText.substring(47).slice(0, -2));
+                
+                pelabuhanData = pelabuhanJson.table.rows.map(row => ({
+                    nama: row.c[0]?.v || '',
+                    lat1: parseFloat(row.c[1]?.v) || 0,
+                    lng1: parseFloat(row.c[2]?.v) || 0,
+                    lat2: parseFloat(row.c[3]?.v) || 0,
+                    lng2: parseFloat(row.c[4]?.v) || 0
+                }));
+                
+                // Proses data untuk filter
+                processFilterData();
+                updateFilterUI();
+                
+                // Update last updated time
+                document.getElementById('last-updated').textContent = formatDate(new Date());
+                
+                if (showNotification) {
+                    showNotification('Data berhasil diperbarui!');
+                }
+                
+                console.log('Data berhasil dimuat:', { desaData, fasilitasData, pelabuhanData });
+                
+            } catch (error) {
+                console.error('Error loading data:', error);
+                showNotification('Gagal memuat data. Silakan coba lagi.', 5000);
+            } finally {
+                setRefreshButtonState(false);
+            }
+        }
+        
+        // Proses data untuk filter
+        function processFilterData() {
+            // Kabupaten unik
+            kabupatenList = [...new Set(desaData.map(item => item.kabupaten))].filter(Boolean);
+            
+            // Jenis fasilitas unik
+            fasilitasTypes = [...new Set(fasilitasData.map(item => item.jenis))].filter(Boolean);
+        }
+        
+        // Update UI filter
+        function updateFilterUI() {
+            const kabupatenSelect = document.getElementById('kabupaten');
+            const fasilitasSelect = document.getElementById('fasilitas');
+            
+            // Isi kabupaten
+            kabupatenSelect.innerHTML = '<option value="">Semua Kabupaten</option>';
+            kabupatenList.forEach(kab => {
+                kabupatenSelect.innerHTML += `<option value="${kab}">${kab}</option>`;
+            });
+            
+            // Isi jenis fasilitas
+            fasilitasSelect.innerHTML = '<option value="">Semua Fasilitas</option>';
+            fasilitasTypes.forEach(jenis => {
+                fasilitasSelect.innerHTML += `<option value="${jenis}">${jenis}</option>`;
+            });
+        }
+        
+        // Update kecamatan berdasarkan kabupaten terpilih
+        function updateKecamatan() {
+            const kabupaten = document.getElementById('kabupaten').value;
+            const kecamatanSelect = document.getElementById('kecamatan');
+            
+            kecamatanSelect.innerHTML = '<option value="">Semua Kecamatan</option>';
+            
+            if (!kabupaten) return;
+            
+            const filteredKecamatan = [...new Set(
+                desaData.filter(d => d.kabupaten === kabupaten).map(d => d.kecamatan)
+            )].filter(Boolean);
+            
+            filteredKecamatan.forEach(kec => {
+                kecamatanSelect.innerHTML += `<option value="${kec}">${kec}</option>`;
+            });
+            
+            updateDesa();
+        }
+        
+        // Update desa berdasarkan kecamatan terpilih
+        function updateDesa() {
+            const kabupaten = document.getElementById('kabupaten').value;
+            const kecamatan = document.getElementById('kecamatan').value;
+            const desaSelect = document.getElementById('desa');
+            
+            desaSelect.innerHTML = '<option value="">Pilih Desa</option>';
+            
+            if (!kabupaten && !kecamatan) return;
+            
+            let filteredDesa = desaData;
+            if (kabupaten) filteredDesa = filteredDesa.filter(d => d.kabupaten === kabupaten);
+            if (kecamatan) filteredDesa = filteredDesa.filter(d => d.kecamatan === kecamatan);
+            
+            filteredDesa.forEach(desa => {
+                desaSelect.innerHTML += `<option value="${desa.desa}">${desa.desa}</option>`;
+            });
+        }
+        
+        // Tampilkan loading state
+        function setLoading(isLoading) {
+            const btnText = document.getElementById('btn-text');
+            const btnLoading = document.getElementById('btn-loading');
+            const calculateBtn = document.getElementById('calculate-btn');
+            
+            if (isLoading) {
+                btnText.textContent = 'Menghitung...';
+                btnLoading.style.display = 'inline-block';
+                calculateBtn.disabled = true;
+            } else {
+                btnText.textContent = 'Hitung Jarak Terdekat';
+                btnLoading.style.display = 'none';
+                calculateBtn.disabled = false;
+            }
+        }
+        
+        // Fungsi untuk menghitung jarak garis lurus (Haversine formula)
+        function haversineDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Radius bumi dalam km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = 
+                Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c; // Jarak dalam km
+        }
+
+        // Fungsi untuk menghitung jarak melalui pelabuhan
+        async function calculateRouteViaPelabuhan(desa, fasilitas, pelabuhan, viaTitik1) {
+            let titikAwal, titikAkhir;
+            
+            if (viaTitik1) {
+                // Desa -> Titik1 -> Titik2 -> Fasilitas
+                titikAwal = [pelabuhan.lat1, pelabuhan.lng1];
+                titikAkhir = [pelabuhan.lat2, pelabuhan.lng2];
+            } else {
+                // Desa -> Titik2 -> Titik1 -> Fasilitas
+                titikAwal = [pelabuhan.lat2, pelabuhan.lng2];
+                titikAkhir = [pelabuhan.lat1, pelabuhan.lng1];
+            }
+            
+            // Hitung jarak dari desa ke titik awal pelabuhan
+            const jarakKePelabuhan = await getRouteDistance(
+                [desa.lat, desa.lng],
+                titikAwal
+            );
+            
+            // Hitung jarak penyebrangan (garis lurus antar pelabuhan)
+            const jarakPenyebrangan = haversineDistance(
+                titikAwal[0], titikAwal[1],
+                titikAkhir[0], titikAkhir[1]
+            ) * 1000; // Konversi km ke meter
+            
+            // Hitung jarak dari titik akhir pelabuhan ke fasilitas
+            const jarakDariPelabuhan = await getRouteDistance(
+                titikAkhir,
+                [fasilitas.lat, fasilitas.lng]
+            );
+            
+            return {
+                totalJarak: jarakKePelabuhan.distance + jarakPenyebrangan + jarakDariPelabuhan.distance,
+                totalDurasi: jarakKePelabuhan.duration + jarakDariPelabuhan.duration,
+                viaTitik1,
+                pelabuhan,
+                rute: {
+                    desa_ke_pelabuhan: jarakKePelabuhan,
+                    penyebrangan: {
+                        distance: jarakPenyebrangan,
+                        duration: 0 // Tidak ada data durasi penyebrangan
+                    },
+                    pelabuhan_ke_fasilitas: jarakDariPelabuhan
+                }
+            };
+        }
+
+        // Fungsi utama untuk menghitung jarak
+        async function hitungJarak() {
+            clearMapLayers();
+            document.getElementById('error-message').style.display = 'none';
+            document.getElementById('all-facilities-results').style.display = 'none';
+            document.getElementById('single-facility-result').style.display = 'none';
+            
+            const desa = document.getElementById('desa').value;
+            const jenisFasilitas = document.getElementById('fasilitas').value;
+            
+            if (!desa) {
+                showError('Silakan pilih desa terlebih dahulu.');
+                return;
+            }
+            
+            const selectedDesa = desaData.find(d => d.desa === desa);
+            if (!selectedDesa) {
+                showError('Data desa tidak ditemukan.');
+                return;
+            }
+            
+            setLoading(true);
+            
+            try {
+                if (jenisFasilitas === "") {
+                    // Mode semua fasilitas
+                    await calculateAllFacilities(selectedDesa);
+                } else {
+                    // Mode single facility
+                    await calculateSingleFacility(selectedDesa, jenisFasilitas);
+                }
+            } catch (error) {
+                console.error('Error in hitungJarak:', error);
+                showError(error.message);
+            } finally {
+                setLoading(false);
+                setTimeout(() => {
+                    if (map) map.invalidateSize();
+                }, 100);
+            }
+        }
+        
+        // Fungsi untuk menghitung semua fasilitas
+        async function calculateAllFacilities(desa) {
+            allFacilitiesResults = [];
+            const container = document.getElementById('facility-results-container');
+            container.innerHTML = '';
+            
+            // Hitung untuk setiap jenis fasilitas
+            for (const jenis of fasilitasTypes) {
+                try {
+                    const result = await calculateFacilityType(desa, jenis);
+                    if (result) {
+                        allFacilitiesResults.push(result);
+                        renderFacilityResult(result);
+                    }
+                } catch (error) {
+                    console.error(`Gagal menghitung untuk fasilitas ${jenis}:`, error);
+                }
+            }
+            
+            if (allFacilitiesResults.length === 0) {
+                throw new Error('Tidak ditemukan fasilitas dalam radius pencarian');
+            }
+            
+            // Update summary
+            updateAllFacilitiesSummary();
+            
+            // Tampilkan container
+            document.getElementById('all-facilities-results').style.display = 'block';
+            
+            // Tampilkan fasilitas terdekat di peta secara otomatis
+            const nearest = [...allFacilitiesResults].sort((a, b) => a.jarak.totalJarak - b.jarak.totalJarak)[0];
+            showFacilityOnMap(nearest);
+        }
+        
+        // Fungsi untuk menghitung per jenis fasilitas
+        async function calculateFacilityType(desa, jenisFasilitas) {
+            const filteredFasilitas = fasilitasData.filter(f => f.jenis === jenisFasilitas);
+            
+            if (filteredFasilitas.length === 0) return null;
+            
+            // Cari dalam radius
+            let currentRadius = 10;
+            const maxRadius = 100;
+            let fasilitasDalamRadius = [];
+            let pelabuhanDalamRadius = [];
+            
+            while (currentRadius <= maxRadius) {
+                fasilitasDalamRadius = filteredFasilitas
+                    .map(f => ({
+                        fasilitas: f,
+                        jarakGarisLurus: haversineDistance(
+                            desa.lat, desa.lng,
+                            f.lat, f.lng
+                        )
+                    }))
+                    .filter(f => f.jarakGarisLurus <= currentRadius);
+                
+                if (fasilitasDalamRadius.length > 0 && pelabuhanData.length > 0) {
+                    pelabuhanDalamRadius = pelabuhanData
+                        .map(p => ({
+                            pelabuhan: p,
+                            jarakKeDesa: Math.min(
+                                haversineDistance(desa.lat, desa.lng, p.lat1, p.lng1),
+                                haversineDistance(desa.lat, desa.lng, p.lat2, p.lng2)
+                            )
+                        }))
+                        .filter(p => p.jarakKeDesa <= currentRadius);
+                }
+                
+                if (fasilitasDalamRadius.length > 0) break;
+                currentRadius += 5;
+            }
+            
+            if (fasilitasDalamRadius.length === 0) return null;
+            
+            // Urutkan dan ambil yang terdekat
+            fasilitasDalamRadius.sort((a, b) => a.jarakGarisLurus - b.jarakGarisLurus);
+            const fasilitas = fasilitasDalamRadius[0].fasilitas;
+            
+            // Hitung jarak
+            let jarakLangsung, jarakViaPelabuhan = null, pelabuhanTerdekat = null;
+            
+            try {
+                jarakLangsung = await getRouteDistance(
+                    [desa.lat, desa.lng],
+                    [fasilitas.lat, fasilitas.lng]
+                );
+                
+                if (pelabuhanDalamRadius.length > 0) {
+                    for (const { pelabuhan } of pelabuhanDalamRadius) {
+                        try {
+                            const opsi1 = await calculateRouteViaPelabuhan(desa, fasilitas, pelabuhan, true);
+                            const opsi2 = await calculateRouteViaPelabuhan(desa, fasilitas, pelabuhan, false);
+                            
+                            const bestForPelabuhan = opsi1.totalJarak < opsi2.totalJarak ? opsi1 : opsi2;
+                            
+                            if (!jarakViaPelabuhan || bestForPelabuhan.totalJarak < jarakViaPelabuhan.totalJarak) {
+                                jarakViaPelabuhan = bestForPelabuhan;
+                                pelabuhanTerdekat = pelabuhan;
+                            }
+                        } catch (error) {
+                            console.warn(`Gagal menghitung rute via pelabuhan:`, error);
+                        }
+                    }
+                }
+                
+                const jarakTerpendek = jarakViaPelabuhan && jarakViaPelabuhan.totalJarak < jarakLangsung.distance
+                    ? { 
+                        ...jarakViaPelabuhan, 
+                        viaPelabuhan: true,
+                        geometry: {
+                            desa_ke_pelabuhan: jarakViaPelabuhan.rute.desa_ke_pelabuhan.geometry,
+                            penyebrangan: {
+                                type: "LineString",
+                                coordinates: [
+                                    [jarakViaPelabuhan.viaTitik1 ? pelabuhanTerdekat.lng1 : pelabuhanTerdekat.lng2, 
+                                     jarakViaPelabuhan.viaTitik1 ? pelabuhanTerdekat.lat1 : pelabuhanTerdekat.lat2],
+                                    [jarakViaPelabuhan.viaTitik1 ? pelabuhanTerdekat.lng2 : pelabuhanTerdekat.lng1, 
+                                     jarakViaPelabuhan.viaTitik1 ? pelabuhanTerdekat.lat2 : pelabuhanTerdekat.lat1]
+                                ]
+                            },
+                            pelabuhan_ke_fasilitas: jarakViaPelabuhan.rute.pelabuhan_ke_fasilitas.geometry
+                        }
+                    }
+                    : { 
+                        totalJarak: jarakLangsung.distance,
+                        totalDurasi: jarakLangsung.duration,
+                        geometry: jarakLangsung.geometry,
+                        viaPelabuhan: false
+                    };
+                
+                return {
+                    jenis: jenisFasilitas,
+                    fasilitas: fasilitas,
+                    jarak: jarakTerpendek,
+                    pelabuhan: jarakTerpendek.viaPelabuhan ? pelabuhanTerdekat : null,
+                    radius: currentRadius
+                };
+                
+            } catch (error) {
+                console.error(`Gagal menghitung untuk ${jenisFasilitas}:`, error);
+                return null;
+            }
+        }
+        
+        // Render hasil per fasilitas
+        function renderFacilityResult(result) {
+            const container = document.getElementById('facility-results-container');
+            const distanceKm = (result.jarak.totalJarak / 1000).toFixed(2);
+            
+            const element = document.createElement('div');
+            element.className = 'facility-result';
+            element.dataset.jenis = result.jenis;
+            element.onclick = () => showFacilityOnMap(result);
+            
+            element.innerHTML = `
+                <div class="facility-header">
+                    <span class="facility-type">${result.jenis}</span>
+                    <span class="facility-distance">${distanceKm} km</span>
+                </div>
+                <div class="facility-details">
+                    <div class="facility-name">${result.fasilitas.nama}</div>
+                    ${result.jarak.viaPelabuhan ? 
+                        `<div class="facility-route">Via Pelabuhan ${result.pelabuhan.nama}</div>` : 
+                        `<div class="facility-route">Rute Langsung</div>`}
+                    <button class="show-route-btn" onclick="event.stopPropagation(); showFacilityOnMap(${JSON.stringify(result).replace(/"/g, '&quot;')})">
+                        <i class="fas fa-map-marked-alt"></i> Tampilkan Rute
+                    </button>
+                </div>
+            `;
+            
+            container.appendChild(element);
+        }
+        
+        // Update ringkasan semua fasilitas
+        function updateAllFacilitiesSummary() {
+            if (allFacilitiesResults.length === 0) return;
+            
+            // Hitung yang terdekat
+            const nearest = [...allFacilitiesResults].sort((a, b) => a.jarak.totalJarak - b.jarak.totalJarak)[0];
+            const nearestDistance = (nearest.jarak.totalJarak / 1000).toFixed(2);
+            
+            document.getElementById('total-facilities').textContent = allFacilitiesResults.length;
+            document.getElementById('nearest-distance').textContent = `${nearestDistance} km`;
+            document.getElementById('nearest-type').textContent = nearest.jenis;
+        }
+        
+        // Tampilkan rute fasilitas tertentu di peta
+        function showFacilityOnMap(result) {
+            if (!map) return;
+            
+            clearMapLayers();
+            
+            // Update active state
+            document.querySelectorAll('.facility-result').forEach(el => {
+                el.classList.remove('active');
+                if (el.dataset.jenis === result.jenis) {
+                    el.classList.add('active');
+                }
+            });
+            
+            const desa = document.getElementById('desa').value;
+            const selectedDesa = desaData.find(d => d.desa === desa);
+            
+            if (result.jarak.viaPelabuhan) {
+                showRouteViaPelabuhanOnMap(
+                    [selectedDesa.lat, selectedDesa.lng],
+                    [result.fasilitas.lat, result.fasilitas.lng],
+                    result.jarak,
+                    selectedDesa.desa,
+                    result.fasilitas.nama
+                );
+            } else {
+                showRouteOnMap(
+                    [selectedDesa.lat, selectedDesa.lng],
+                    [result.fasilitas.lat, result.fasilitas.lng],
+                    result.jarak.geometry,
+                    selectedDesa.desa,
+                    result.fasilitas.nama
+                );
+            }
+            
+            // Scroll ke peta di mobile
+            if (window.innerWidth <= 991) {
+                document.getElementById('map-container').scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+        
+        // Fungsi untuk single facility
+        async function calculateSingleFacility(desa, jenisFasilitas) {
+            const filteredFasilitas = fasilitasData.filter(f => f.jenis === jenisFasilitas);
+            
+            if (filteredFasilitas.length === 0) {
+                throw new Error('Tidak ada fasilitas yang sesuai dengan filter.');
+            }
+            
+            // Cari dalam radius
+            let currentRadius = 10;
+            const maxRadius = 100;
+            let fasilitasDalamRadius = [];
+            let pelabuhanDalamRadius = [];
+            let radiusInfo = "";
+            
+            while (currentRadius <= maxRadius) {
+                fasilitasDalamRadius = filteredFasilitas
+                    .map(f => ({
+                        fasilitas: f,
+                        jarakGarisLurus: haversineDistance(
+                            desa.lat, desa.lng,
+                            f.lat, f.lng
+                        )
+                    }))
+                    .filter(f => f.jarakGarisLurus <= currentRadius);
+                
+                if (fasilitasDalamRadius.length > 0 && pelabuhanData.length > 0) {
+                    pelabuhanDalamRadius = pelabuhanData
+                        .map(p => ({
+                            pelabuhan: p,
+                            jarakKeDesa: Math.min(
+                                haversineDistance(desa.lat, desa.lng, p.lat1, p.lng1),
+                                haversineDistance(desa.lat, desa.lng, p.lat2, p.lng2)
+                            )
+                        }))
+                        .filter(p => p.jarakKeDesa <= currentRadius);
+                }
+                
+                if (fasilitasDalamRadius.length > 0) {
+                    radiusInfo = `Menggunakan ${fasilitasDalamRadius.length} fasilitas dalam radius ${currentRadius} km`;
+                    if (pelabuhanDalamRadius.length > 0) {
+                        radiusInfo += ` dan ${pelabuhanDalamRadius.length} pelabuhan`;
+                    }
+                    break;
+                }
+                
+                currentRadius += 5;
+            }
+            
+            if (fasilitasDalamRadius.length === 0) {
+                throw new Error('Tidak ditemukan fasilitas dalam radius 100 km');
+            }
+            
+            // Urutkan dan ambil yang terdekat
+            fasilitasDalamRadius.sort((a, b) => a.jarakGarisLurus - b.jarakGarisLurus);
+            const fasilitas = fasilitasDalamRadius[0].fasilitas;
+            
+            // Hitung jarak
+            let jarakLangsung, jarakViaPelabuhan = null, pelabuhanTerdekat = null;
+            
+            try {
+                jarakLangsung = await getRouteDistance(
+                    [desa.lat, desa.lng],
+                    [fasilitas.lat, fasilitas.lng]
+                );
+                
+                if (pelabuhanDalamRadius.length > 0) {
+                    for (const { pelabuhan } of pelabuhanDalamRadius) {
+                        try {
+                            const opsi1 = await calculateRouteViaPelabuhan(desa, fasilitas, pelabuhan, true);
+                            const opsi2 = await calculateRouteViaPelabuhan(desa, fasilitas, pelabuhan, false);
+                            
+                            const bestForPelabuhan = opsi1.totalJarak < opsi2.totalJarak ? opsi1 : opsi2;
+                            
+                            if (!jarakViaPelabuhan || bestForPelabuhan.totalJarak < jarakViaPelabuhan.totalJarak) {
+                                jarakViaPelabuhan = bestForPelabuhan;
+                                pelabuhanTerdekat = pelabuhan;
+                            }
+                        } catch (error) {
+                            console.warn(`Gagal menghitung rute via pelabuhan:`, error);
+                        }
+                    }
+                }
+                
+                const jarakTerpendek = jarakViaPelabuhan && jarakViaPelabuhan.totalJarak < jarakLangsung.distance
+                    ? { 
+                        ...jarakViaPelabuhan, 
+                        viaPelabuhan: true,
+                        geometry: {
+                            desa_ke_pelabuhan: jarakViaPelabuhan.rute.desa_ke_pelabuhan.geometry,
+                            penyebrangan: {
+                                type: "LineString",
+                                coordinates: [
+                                    [jarakViaPelabuhan.viaTitik1 ? pelabuhanTerdekat.lng1 : pelabuhanTerdekat.lng2, 
+                                     jarakViaPelabuhan.viaTitik1 ? pelabuhanTerdekat.lat1 : pelabuhanTerdekat.lat2],
+                                    [jarakViaPelabuhan.viaTitik1 ? pelabuhanTerdekat.lng2 : pelabuhanTerdekat.lng1, 
+                                     jarakViaPelabuhan.viaTitik1 ? pelabuhanTerdekat.lat2 : pelabuhanTerdekat.lat1]
+                                ]
+                            },
+                            pelabuhan_ke_fasilitas: jarakViaPelabuhan.rute.pelabuhan_ke_fasilitas.geometry
+                        }
+                    }
+                    : { 
+                        totalJarak: jarakLangsung.distance,
+                        totalDurasi: jarakLangsung.duration,
+                        geometry: jarakLangsung.geometry,
+                        viaPelabuhan: false
+                    };
+                
+                // Tampilkan hasil
+                displaySingleFacilityResult(
+                    desa, 
+                    fasilitas, 
+                    jarakTerpendek, 
+                    radiusInfo,
+                    pelabuhanTerdekat
+                );
+                
+                // Tampilkan rute di peta
+                if (jarakTerpendek.viaPelabuhan) {
+                    showRouteViaPelabuhanOnMap(
+                        [desa.lat, desa.lng],
+                        [fasilitas.lat, fasilitas.lng],
+                        jarakTerpendek,
+                        desa.desa,
+                        fasilitas.nama
+                    );
+                } else {
+                    showRouteOnMap(
+                        [desa.lat, desa.lng],
+                        [fasilitas.lat, fasilitas.lng],
+                        jarakTerpendek.geometry,
+                        desa.desa,
+                        fasilitas.nama
+                    );
+                }
+                
+            } catch (error) {
+                console.error(`Gagal menghitung jarak untuk fasilitas ${fasilitas.nama}:`, error);
+                throw error;
+            }
+        }
+        
+        // Tampilkan hasil single facility
+        function displaySingleFacilityResult(desa, fasilitas, routeInfo, radiusInfo, pelabuhan = null) {
+            const distanceKm = (routeInfo.totalJarak / 1000).toFixed(2);
+            
+            let html = `
+                <div class="result-item">
+                    <div class="result-label">Desa:</div>
+                    <div class="result-value">${desa.desa}</div>
+                </div>
+                <div class="result-item">
+                    <div class="result-label">Fasilitas:</div>
+                    <div class="result-value">${fasilitas.nama} (${fasilitas.jenis})</div>
+                </div>
+                <div class="result-item">
+                    <div class="result-label">Jarak:</div>
+                    <div class="result-value">${distanceKm} km `;
+            
+            if (routeInfo.viaPelabuhan && pelabuhan) {
+                html += `<span class="distance-badge badge-sea">Rute Penyebrangan</span></div>
+                </div>
+                <div class="result-item">
+                    <div class="result-label">Pelabuhan:</div>
+                    <div class="result-value">${pelabuhan.nama}</div>
+                </div>`;
+            } else {
+                html += `<span class="distance-badge">Rute Jalan</span></div>
+                </div>`;
+            }
+            
+            document.getElementById('hasil-jarak').innerHTML = html;
+            
+            if (routeInfo.viaPelabuhan && pelabuhan) {
+                document.getElementById('route-summary').textContent = 
+                    `${desa.desa} → ${pelabuhan.nama} → ${fasilitas.nama}`;
+            } else {
+                document.getElementById('route-summary').textContent = 
+                    `${desa.desa} → ${fasilitas.nama}`;
+            }
+            
+            document.getElementById('route-duration').textContent = 
+                formatDuration(routeInfo.totalDurasi) + (routeInfo.viaPelabuhan ? " + waktu penyebrangan" : "");
+            
+            document.getElementById('radius-info').textContent = radiusInfo;
+            document.getElementById('single-facility-result').style.display = 'block';
+            document.getElementById('error-message').style.display = 'none';
+        }
+        
+        // Fungsi untuk mendapatkan jarak rute sebenarnya dari OSRM
+        async function getRouteDistance(pointA, pointB) {
+            // Validasi koordinat
+            const isValidCoord = (coord) => {
+                return coord[0] !== 0 && coord[1] !== 0 &&
+                       Math.abs(coord[0]) <= 90 && 
+                       Math.abs(coord[1]) <= 180;
+            };
+            
+            if (!isValidCoord(pointA) || !isValidCoord(pointB)) {
+                console.error('Koordinat tidak valid:', pointA, pointB);
+                throw new Error('Koordinat tidak valid');
+            }
+            
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 30000);
+                
+                const url = `https://router.project-osrm.org/route/v1/driving/${pointA[1]},${pointA[0]};${pointB[1]},${pointB[0]}?overview=full&geometries=geojson`;
+                
+                const response = await fetch(url, { signal: controller.signal });
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.code !== 'Ok' || data.routes.length === 0) {
+                    throw new Error('Tidak ditemukan rute yang tersedia');
+                }
+                
+                return {
+                    distance: data.routes[0].distance,
+                    duration: data.routes[0].duration,
+                    geometry: data.routes[0].geometry
+                };
+            } catch (error) {
+                console.error('Error in getRouteDistance:', error);
+                throw new Error('Gagal menghitung rute: ' + error.message);
+            }
+        }
+        
+        // Format durasi (detik ke jam/menit)
+        function formatDuration(seconds) {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.round((seconds % 3600) / 60);
+            
+            if (hours > 0) {
+                return `${hours} jam ${minutes} menit`;
+            }
+            return `${minutes} menit`;
+        }
+        
+        // Tampilkan error
+        function showError(message) {
+            const errorElement = document.getElementById('error-message');
+            const errorText = document.getElementById('error-text');
+            errorText.textContent = message;
+            errorElement.style.display = 'flex';
+            document.getElementById('rute-detail').style.display = 'none';
+            showNotification(message, 5000);
+        }
+        
+        // Tampilkan rute di peta
+        function showRouteOnMap(pointA, pointB, geometry, fromName, toName) {
+            if (!map) return;
+            
+            clearMapLayers();
+            
+            // Tambahkan marker
+            markers.start = L.marker(pointA, {
+                icon: L.divIcon({
+                    className: 'custom-icon',
+                    html: `<div style="background-color:#27ae60; border-radius:50%; width:16px; height:16px; border:2px solid white; box-shadow:0 0 5px rgba(0,0,0,0.3);"></div>`
+                })
+            }).addTo(map)
+                .bindPopup(`<b>Asal:</b> ${fromName}`)
+                .openPopup();
+            
+            routeLayers.push(markers.start);
+                
+            markers.end = L.marker(pointB, {
+                icon: L.divIcon({
+                    className: 'custom-icon',
+                    html: `<div style="background-color:#9b59b6; border-radius:50%; width:16px; height:16px; border:2px solid white; box-shadow:0 0 5px rgba(0,0,0,0.3);"></div>`
+                })
+            }).addTo(map)
+                .bindPopup(`<b>Tujuan:</b> ${toName}`);
+            
+            routeLayers.push(markers.end);
+            
+            // Gambar rute menggunakan Leaflet Routing Machine
+            const routeControl = L.Routing.control({
+                waypoints: [
+                    L.latLng(pointA[0], pointA[1]),
+                    L.latLng(pointB[0], pointB[1])
+                ],
+                routeWhileDragging: false,
+                show: false,
+                addWaypoints: false,
+                draggableWaypoints: false,
+                fitSelectedRoutes: true,
+                lineOptions: {
+                    styles: [{color: '#3498db', opacity: 0.7, weight: 5}]
+                }
+            }).addTo(map);
+            
+            routeLayers.push(routeControl);
+            
+            // Zoom ke rute
+            const bounds = L.latLngBounds(pointA, pointB);
+            map.fitBounds(bounds, { padding: [50, 50] });
+        }
+
+        // Tampilkan rute pelabuhan di peta
+        function showRouteViaPelabuhanOnMap(pointA, pointB, routeInfo, fromName, toName) {
+            if (!map) return;
+            
+            clearMapLayers();
+            const pelabuhan = routeInfo.pelabuhan;
+            
+            // Titik pelabuhan yang digunakan
+            const titikAwal = routeInfo.viaTitik1 
+                ? [pelabuhan.lat1, pelabuhan.lng1] 
+                : [pelabuhan.lat2, pelabuhan.lng2];
+            
+            const titikAkhir = routeInfo.viaTitik1 
+                ? [pelabuhan.lat2, pelabuhan.lng2] 
+                : [pelabuhan.lat1, pelabuhan.lng1];
+            
+            // Tambahkan marker utama (desa dan fasilitas)
+            markers.start = L.marker(pointA, {
+                icon: L.divIcon({
+                    className: 'custom-icon',
+                    html: `<div style="background-color:#27ae60; border-radius:50%; width:16px; height:16px; border:2px solid white; box-shadow:0 0 5px rgba(0,0,0,0.3);"></div>`
+                })
+            }).addTo(map)
+                .bindPopup(`<b>Asal:</b> ${fromName}`)
+                .openPopup();
+            
+            routeLayers.push(markers.start);
+                
+            markers.end = L.marker(pointB, {
+                icon: L.divIcon({
+                    className: 'custom-icon',
+                    html: `<div style="background-color:#9b59b6; border-radius:50%; width:16px; height:16px; border:2px solid white; box-shadow:0 0 5px rgba(0,0,0,0.3);"></div>`
+                })
+            }).addTo(map)
+                .bindPopup(`<b>Tujuan:</b> ${toName}`);
+            
+            routeLayers.push(markers.end);
+            
+            // Tambahkan marker pelabuhan
+            const pelabuhanMarker1 = L.marker(titikAwal, {
+                icon: L.divIcon({
+                    className: 'custom-icon',
+                    html: `<div style="background-color:#f39c12; border-radius:50%; width:16px; height:16px; border:2px solid white; box-shadow:0 0 5px rgba(0,0,0,0.3);"></div>`
+                })
+            }).addTo(map)
+                .bindPopup(`<b>Pelabuhan:</b> ${pelabuhan.nama}<br>${routeInfo.viaTitik1 ? 'Titik Keberangkatan' : 'Titik Kedatangan'}`);
+            routeLayers.push(pelabuhanMarker1);
+            
+            const pelabuhanMarker2 = L.marker(titikAkhir, {
+                icon: L.divIcon({
+                    className: 'custom-icon',
+                    html: `<div style="background-color:#f39c12; border-radius:50%; width:16px; height:16px; border:2px solid white; box-shadow:0 0 5px rgba(0,0,0,0.3);"></div>`
+                })
+            }).addTo(map)
+                .bindPopup(`<b>Pelabuhan:</b> ${pelabuhan.nama}<br>${routeInfo.viaTitik1 ? 'Titik Kedatangan' : 'Titik Keberangkatan'}`);
+            routeLayers.push(pelabuhanMarker2);
+
+            // Gambar rute darat: Desa → Pelabuhan (titik awal)
+            const ruteDaratan1 = L.Routing.control({
+                waypoints: [
+                    L.latLng(pointA[0], pointA[1]),
+                    L.latLng(titikAwal[0], titikAwal[1])
+                ],
+                routeWhileDragging: false,
+                show: false,
+                addWaypoints: false,
+                lineOptions: {
+                    styles: [{color: '#3498db', opacity: 0.7, weight: 5}]
+                }
+            }).addTo(map);
+            routeLayers.push(ruteDaratan1);
+
+            // Gambar garis penyebrangan: Titik awal → Titik akhir
+            const garisPenyebrangan = L.polyline([titikAwal, titikAkhir], {
+                color: '#e74c3c',
+                weight: 5,
+                dashArray: '10, 10'
+            }).addTo(map).bindPopup('Rute Penyebrangan');
+            routeLayers.push(garisPenyebrangan);
+
+            // Gambar rute darat: Pelabuhan (titik akhir) → Fasilitas
+            const ruteDaratan2 = L.Routing.control({
+                waypoints: [
+                    L.latLng(titikAkhir[0], titikAkhir[1]),
+                    L.latLng(pointB[0], pointB[1])
+                ],
+                routeWhileDragging: false,
+                show: false,
+                addWaypoints: false,
+                lineOptions: {
+                    styles: [{color: '#3498db', opacity: 0.7, weight: 5}]
+                }
+            }).addTo(map);
+            routeLayers.push(ruteDaratan2);
+            
+            // Zoom ke semua titik
+            const bounds = L.latLngBounds(pointA, pointB)
+                .extend(titikAwal)
+                .extend(titikAkhir);
+            map.fitBounds(bounds, { padding: [50, 50] });
+        }
+        
+        // Hapus semua layer dari peta
+        function clearMapLayers() {
+            if (!map) return;
+            
+            // Hapus semua marker
+            Object.values(markers).forEach(marker => {
+                if (marker) map.removeLayer(marker);
+            });
+            
+            // Hapus semua layer rute
+            routeLayers.forEach(layer => {
+                if (layer && typeof layer.remove === 'function') {
+                    map.removeLayer(layer);
+                } else if (layer && typeof layer.removeControl === 'function') {
+                    map.removeControl(layer);
+                }
+            });
+            
+            routeLayers = [];
+            markers = {
+                start: null,
+                end: null
+            };
+        }
+
+        // Auto-refresh data setiap 5 menit
+        function setupAutoRefresh() {
+            refreshInterval = setInterval(() => {
+                loadData();
+            }, 300000); // 5 menit = 300000 ms
+        }
+
+        // Load data saat halaman dimuat
+        window.onload = function() {
+            initMap();
+            loadData();
+            setupAutoRefresh();
+            
+            // Perbaikan untuk tampilan peta di mobile
+            window.addEventListener('resize', function() {
+                setTimeout(() => {
+                    if (map) map.invalidateSize();
+                }, 100);
+            });
+        };
+    </script>
+</body>
+</html>
